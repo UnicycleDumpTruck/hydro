@@ -7,7 +7,12 @@ import board
 from rainbowio import colorwheel
 import neopixel
 
-PULSE_THRESHOLD = 5
+from random import choice
+
+PULSE_THRESHOLD = 1
+DECREMENT_TIME = 0.1 # Seconds between column decrements
+
+last_decrement = time.monotonic()
 
 pulses = pulseio.PulseIn(board.A0)
 
@@ -40,20 +45,25 @@ class LEDCOL:
         self.current_count = 0
 
     def increment(self):
+        if self.current_count == 0:
+            non_empty_cols.add(self)
+            empty_cols.remove(self)
         self.current_count += 1
         if self.current_count > 6:
             self.current_count = 6
-            return True
         self.update_pixels()
-        return False
+        return (self.current_count > 1)
 
     def decrement(self):
         self.current_count -= 1
         if self.current_count < 0:
             self.current_count = 0
-            return True
+        if self.current_count == 0:
+            empty_cols.add(self)
+            non_empty_cols.remove(self)
+
         self.update_pixels()
-        return False
+        return (self.current_count == 0)
 
     def update_pixels(self):
         if self.top > self.bottom:
@@ -69,55 +79,38 @@ class LEDCOL:
         pixels.show()
 
 
-
-def color_chase(color, wait):
-    for i in range(num_pixels):
-        pixels[i] = color
-        time.sleep(wait)
-        pixels.show()
-    time.sleep(0.5)
-
-
-def rainbow_cycle(wait):
-    for j in range(255):
-        for i in range(num_pixels):
-            rc_index = (i * 256 // num_pixels) + j
-            pixels[i] = colorwheel(rc_index & 255)
-        pixels.show()
-        time.sleep(wait)
-
-
 pixels.fill(OFF)
 pixels.show()
 col_1 = LEDCOL(COLUMN_1, RED)
 col_2 = LEDCOL(COLUMN_2, BLUE)
 col_3 = LEDCOL(COLUMN_3, GREEN)
-col_4 = LEDCOL(COLUMN_4, CYAN)
+col_4 = LEDCOL(COLUMN_4, PURPLE)
 col_5 = LEDCOL(COLUMN_5, YELLOW)
-col_6 = LEDCOL(COLUMN_6, PURPLE)
+col_6 = LEDCOL(COLUMN_6, CYAN)
+
+cols = [col_1, col_2, col_3, col_4, col_5, col_6]
+non_empty_cols = set()
+empty_cols = set(cols)
 
 pulse_count = 0
 
 while True:
-    # pixels.fill(RED)
-    # pixels.show()
-    # # Increase or decrease to change the speed of the solid color change.
-    # time.sleep(1)
-    # pixels.fill(GREEN)
-    # pixels.show()
-    # time.sleep(1)
-    # pixels.fill(BLUE)
-    # pixels.show()
-    # time.sleep(1)
+    # print((time.monotonic() - last_decrement))
+    if (time.monotonic() - last_decrement) > DECREMENT_TIME:
+        # for c in cols:
+        #     c.decrement()
 
-    # color_chase(RED, 0.1)  # Increase the number to slow down the color chase
-    # color_chase(YELLOW, 0.1)
-    # color_chase(GREEN, 0.1)
-    # color_chase(CYAN, 0.1)
-    # color_chase(BLUE, 0.1)
-    # color_chase(PURPLE, 0.1)
+        # if col_1.decrement():
+        #     if col_2.decrement():
+        #         if col_3.decrement():
+        #             if col_4.decrement():
+        #                 if col_5.decrement():
+        #                     if col_6.decrement():
+        #                         print("Matrix Empty")
+        if len(non_empty_cols):
+            choice(tuple(non_empty_cols)).decrement()
 
-    # rainbow_cycle(0)  # Increase the number to slow down the rainbow
+        last_decrement = time.monotonic()
 
     if len(pulses) > 0:
         pulses.pause()
@@ -125,13 +118,14 @@ while True:
 
         pulse_count += len(pulses)
         if pulse_count > PULSE_THRESHOLD:
-            if col_1.increment():
-                if col_2.increment():
-                    if col_3.increment():
-                        if col_4.increment():
-                            if col_5.increment():
-                                if col_6.increment():
-                                    print("Matrix Full")
+            choice(cols).increment()
+            # if col_1.increment():
+            #     if col_2.increment():
+            #         if col_3.increment():
+            #             if col_4.increment():
+            #                 if col_5.increment():
+            #                     if col_6.increment():
+            #                         print("Matrix Full")
             pulse_count = 0
 
         pulses.clear()
